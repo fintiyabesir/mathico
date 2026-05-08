@@ -1,10 +1,10 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppContext } from '../context/AppContext';
-import { getDailyMetrics, getOperationMetrics, OperationMetrics } from '../../features/reporting/reportingEngine';
+import { getOperationMetrics, OperationMetrics } from '../../features/reporting/reportingEngine';
 import { AppTheme } from '../../shared/ui/theme';
 import { useFocusEffect } from '@react-navigation/native';
 

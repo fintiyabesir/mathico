@@ -24,7 +24,7 @@ export default function SessionEndScreen({ navigation, route }: Props) {
   const s = styles(theme);
 
   useEffect(() => {
-    buildSessionResult(sessionId, userProfileId, levelChanges).then(setResult);
+    buildSessionResult(sessionId, levelChanges).then(setResult);
   }, []);
 
   if (!result) {

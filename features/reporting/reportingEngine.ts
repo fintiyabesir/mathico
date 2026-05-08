@@ -23,15 +23,9 @@ export interface OperationMetrics {
 
 export async function buildSessionResult(
   sessionId: string,
-  userProfileId: string,
   levelChanges: LevelChange[]
 ): Promise<SessionResult> {
   const db = await getDatabase();
-
-  const questions = await db.getAllAsync<{ id: string; skillId: string }>(
-    'SELECT id, skillId FROM session_question WHERE sessionId = ?',
-    [sessionId]
-  );
 
   const attempts = await db.getAllAsync<{
     sessionQuestionId: string;
@@ -39,8 +33,9 @@ export async function buildSessionResult(
     responseTimeMs: number;
     awardedPoints: number;
     skillId: string;
+    attemptNo: number;
   }>(
-    `SELECT aa.sessionQuestionId, aa.isCorrect, aa.responseTimeMs, aa.awardedPoints, sq.skillId
+    `SELECT aa.sessionQuestionId, aa.isCorrect, aa.responseTimeMs, aa.awardedPoints, sq.skillId, aa.attemptNo
      FROM answer_attempt aa
      JOIN session_question sq ON aa.sessionQuestionId = sq.id
      WHERE sq.sessionId = ?`,
@@ -48,16 +43,32 @@ export async function buildSessionResult(
   );
 
   const totalPoints = attempts.reduce((s, a) => s + a.awardedPoints, 0);
-  const correctAnswers = attempts.filter(a => a.isCorrect === 1).length;
-  const accuracy = attempts.length > 0 ? correctAnswers / attempts.length : 0;
   const times = attempts.map(a => a.responseTimeMs);
   const avgResponseTimeMs = times.length > 0 ? times.reduce((s, t) => s + t, 0) / times.length : 0;
   const medianResponseTimeMs = computeMedian(times);
 
-  // Per-operation breakdown
+  // Accuracy: per-question final outcome (last attempt for each question)
+  const lastAttemptByQuestion = new Map<string, { isCorrect: number }>();
+  for (const attempt of attempts) {
+    const existing = lastAttemptByQuestion.get(attempt.sessionQuestionId);
+    if (!existing || attempt.attemptNo > (existing as any).attemptNo) {
+      lastAttemptByQuestion.set(attempt.sessionQuestionId, attempt);
+    }
+  }
+  const questionsAnswered = lastAttemptByQuestion.size;
+  const correctAnswers = Array.from(lastAttemptByQuestion.values()).filter(a => a.isCorrect === 1).length;
+  const accuracy = questionsAnswered > 0 ? correctAnswers / questionsAnswered : 0;
+
+  // Per-operation breakdown (per-question final outcome)
   const opMap: Record<string, { correct: number; total: number }> = {};
   for (const attempt of attempts) {
     const op = attempt.skillId.replace('skill_', '');
+    if (!opMap[op]) opMap[op] = { correct: 0, total: 0 };
+  }
+  for (const [sqId, attempt] of lastAttemptByQuestion.entries()) {
+    const fullAttempt = attempts.find(a => a.sessionQuestionId === sqId);
+    if (!fullAttempt) continue;
+    const op = fullAttempt.skillId.replace('skill_', '');
     if (!opMap[op]) opMap[op] = { correct: 0, total: 0 };
     opMap[op].total++;
     if (attempt.isCorrect === 1) opMap[op].correct++;
@@ -84,7 +95,7 @@ export async function buildSessionResult(
     strongArea,
     weakArea,
     levelChanges,
-    questionsAnswered: attempts.length,
+    questionsAnswered,
     correctAnswers,
   };
 }

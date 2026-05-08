@@ -11,10 +11,12 @@ import { RewardTransaction } from '../../shared/types';
 import { AppTheme, getTheme } from '../../shared/ui/theme';
 import { ThemeType } from '../../shared/types';
 import { useFocusEffect } from '@react-navigation/native';
-import { getAllProfiles } from '../../features/profile/profileService';
+import { updateProfileTheme } from '../../features/profile/profileService';
 import { RootStackParamList } from '../navigation/types';
+import * as SecureStore from 'expo-secure-store';
 
-const PARENT_PIN = '1234'; // Simple demo PIN; in production use expo-secure-store
+const PARENT_PIN_KEY = 'mathico_parent_pin';
+const DEFAULT_PIN = '1234';
 
 export default function ParentScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -45,8 +47,9 @@ export default function ParentScreen() {
     setTransactions(txs);
   }
 
-  function verifyPin() {
-    if (pinInput === PARENT_PIN) {
+  async function verifyPin() {
+    const storedPin = await SecureStore.getItemAsync(PARENT_PIN_KEY) ?? DEFAULT_PIN;
+    if (pinInput === storedPin) {
       setPinUnlocked(true);
       loadData();
     } else {
@@ -78,8 +81,11 @@ export default function ParentScreen() {
     }
   }
 
-  function handleThemeChange(t: ThemeType) {
+  async function handleThemeChange(t: ThemeType) {
     setTheme(t);
+    if (activeProfile) {
+      await updateProfileTheme(activeProfile.id, t);
+    }
   }
 
   if (!pinUnlocked) {

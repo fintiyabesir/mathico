@@ -99,6 +99,7 @@ async function initSchema(db: SQLite.SQLiteDatabase): Promise<void> {
       targetValue REAL NOT NULL,
       currentValue REAL NOT NULL DEFAULT 0,
       completed INTEGER NOT NULL DEFAULT 0,
+      UNIQUE(userProfileId, date, goalType),
       FOREIGN KEY (userProfileId) REFERENCES user_profile(id)
     );
 

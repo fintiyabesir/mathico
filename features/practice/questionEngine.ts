@@ -23,13 +23,19 @@ function generateWrongChoices(correct: number, count: number, min: number, max: 
     attempts++;
     const delta = randInt(1, Math.max(5, Math.floor((max - min) * 0.2)));
     const sign = Math.random() < 0.5 ? 1 : -1;
-    const candidate = correct + sign * delta;
+    const candidate = Math.max(min, Math.min(max, correct + sign * delta));
     if (candidate !== correct && !wrongs.has(candidate)) {
       wrongs.add(candidate);
     }
   }
-  // Fill if needed
-  let fallback = correct + 1;
+  // Fill with in-range fallbacks if needed
+  let fallback = min;
+  while (wrongs.size < count && fallback <= max) {
+    if (fallback !== correct && !wrongs.has(fallback)) wrongs.add(fallback);
+    fallback++;
+  }
+  // Last resort: go above max but still avoid negatives for young users
+  fallback = max + 1;
   while (wrongs.size < count) {
     if (!wrongs.has(fallback)) wrongs.add(fallback);
     fallback++;
@@ -68,10 +74,19 @@ export function generateQuestion(
       break;
     }
     case 'division': {
-      // Generate clean division: pick answer first, then multiply
-      operand2 = randInt(Math.max(1, params.minNum), params.maxNum);
-      answer = randInt(Math.max(1, params.minNum), params.maxNum);
-      operand1 = operand2 * answer;
+      if (params.hasRemainder) {
+        // Remainder-based: operand1 is not necessarily divisible by operand2
+        operand2 = randInt(Math.max(2, params.minNum), params.maxNum);
+        operand1 = randInt(params.minNum * operand2, params.maxNum * operand2);
+        // Ensure there actually IS a remainder
+        if (operand1 % operand2 === 0 && operand1 > operand2) operand1 -= 1;
+        answer = Math.floor(operand1 / operand2);
+      } else {
+        // Exact division: pick answer first, then multiply
+        operand2 = randInt(Math.max(1, params.minNum), params.maxNum);
+        answer = randInt(Math.max(1, params.minNum), params.maxNum);
+        operand1 = operand2 * answer;
+      }
       break;
     }
     default: {

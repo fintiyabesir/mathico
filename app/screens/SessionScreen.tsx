@@ -13,7 +13,7 @@ import {
 } from '../../features/practice/questionEngine';
 import { calculateScore, calculateAbandonPenalty } from '../../features/scoring/scoringEngine';
 import { getOrCreateLevelProgress, updateLevelProgressAfterAnswer } from '../../features/progression/progressionEngine';
-import { addPoints } from '../../features/rewards-wallet/rewardsWallet';
+import { addPoints, spendPoints } from '../../features/rewards-wallet/rewardsWallet';
 import { incrementDailyGoal } from '../../features/gamification/gamificationEngine';
 import { QuestionPayload, OperationType, LevelChange } from '../../shared/types';
 import { SESSION_QUESTION_COUNT, OPERATION_LABELS, AGE_SECOND_CHANCE } from '../../shared/lib/constants';
@@ -226,7 +226,7 @@ export default function SessionScreen({ navigation, route }: Props) {
               [new Date().toISOString(), penalty, sessionId]
             );
             if (penalty < 0 && activeProfile) {
-              await addPoints(activeProfile.id, penalty, 'Seans terk edildi');
+              await spendPoints(activeProfile.id, Math.abs(penalty), 'Seans terk edildi');
             }
             navigation.goBack();
           }
@@ -291,7 +291,7 @@ export default function SessionScreen({ navigation, route }: Props) {
             onSelect={submitAnswer}
             theme={theme}
             disabled={feedback === 'correct' || (feedback === 'incorrect' && !usedSecondChance)}
-            correctAnswer={feedback !== null ? String(question.answer) : undefined}
+            correctAnswer={feedback === 'correct' || (feedback === 'incorrect' && !usedSecondChance) ? String(question.answer) : undefined}
             selectedAnswer={selectedAnswer}
           />
         ) : (

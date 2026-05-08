@@ -16,18 +16,18 @@ export default function NumericPad({ value, onChange, onSubmit, theme, maxDigits
       onChange(value.slice(0, -1));
     } else if (digit === 'OK') {
       if (value.length > 0) onSubmit();
+    } else if (digit === '-') {
+      // Sign toggle: never counts toward maxDigits
+      if (value.startsWith('-')) {
+        onChange(value.slice(1));
+      } else {
+        onChange('-' + value);
+      }
     } else {
-      if (value.length < maxDigits) {
-        // Handle negative toggle
-        if (digit === '-') {
-          if (value.startsWith('-')) {
-            onChange(value.slice(1));
-          } else {
-            onChange('-' + value);
-          }
-        } else {
-          onChange(value + digit);
-        }
+      // Count only numeric digits (exclude '-' sign)
+      const digitCount = value.startsWith('-') ? value.length - 1 : value.length;
+      if (digitCount < maxDigits) {
+        onChange(value + digit);
       }
     }
   };

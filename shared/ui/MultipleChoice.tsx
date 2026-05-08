@@ -34,9 +34,9 @@ export default function MultipleChoice({
 
   return (
     <View style={s.container}>
-      {choices.map((choice, index) => (
+      {choices.map((choice) => (
         <TouchableOpacity
-          key={index}
+          key={String(choice)}
           style={getButtonStyle(choice)}
           onPress={() => !disabled && onSelect(String(choice))}
           activeOpacity={0.75}

@@ -24,6 +24,8 @@ export async function spendPoints(
   amount: number,
   description: string
 ): Promise<boolean> {
+  if (amount <= 0) return false;
+  if (!description.trim()) return false;
   const balance = await getBalance(userProfileId);
   if (balance < amount) return false;
   const db = await getDatabase();
