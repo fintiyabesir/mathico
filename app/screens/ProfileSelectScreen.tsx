@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator
 } from 'react-native';
@@ -10,6 +10,7 @@ import { UserProfile } from '../../shared/types';
 import { useAppContext } from '../context/AppContext';
 import { getTheme } from '../../shared/ui/theme';
 import { AppTheme } from '../../shared/ui/theme';
+import { useFocusEffect } from '@react-navigation/native';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'ProfileSelect'>;
@@ -21,16 +22,18 @@ export default function ProfileSelectScreen({ navigation }: Props) {
   const { setActiveProfile } = useAppContext();
   const theme = getTheme('child');
 
-  useEffect(() => {
-    loadProfiles();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadProfiles();
+    }, [])
+  );
 
   async function loadProfiles() {
     try {
       const ps = await getAllProfiles();
       setProfiles(ps);
-      if (ps.length === 1) {
-        // Auto-select single profile
+      // Auto-select only on first launch (no back stack), not when switching profiles
+      if (ps.length === 1 && !navigation.canGoBack()) {
         setActiveProfile(ps[0]);
         navigation.replace('Home');
       }

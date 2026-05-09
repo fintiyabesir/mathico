@@ -2,6 +2,7 @@ import { getDatabase } from '../../shared/storage/database';
 import { DailyGoal, BadgeAward, Badge } from '../../shared/types';
 import { DAILY_GOAL_QUESTION_COUNT } from '../../shared/lib/constants';
 import { AgeGroup } from '../../shared/types';
+import { addPoints } from '../rewards-wallet/rewardsWallet';
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -38,12 +39,21 @@ export async function incrementDailyGoal(userProfileId: string, questionsAnswere
   );
   if (!goal) return null;
 
+  const wasCompleted = goal.completed === 1;
   const newValue = Math.min(goal.currentValue + questionsAnswered, goal.targetValue);
   const completed = newValue >= goal.targetValue ? 1 : 0;
   await db.runAsync(
     'UPDATE daily_goal SET currentValue = ?, completed = ? WHERE id = ?',
     [newValue, completed, goal.id]
   );
+
+  // Seri bonusu: günlük hedef bu seans ile yeni tamamlandıysa bonus puan ver
+  if (!wasCompleted && completed === 1) {
+    const streak = await getStreak(userProfileId);
+    const streakBonus = streak <= 1 ? 10 : streak <= 3 ? 25 : streak <= 7 ? 50 : 100;
+    await addPoints(userProfileId, streakBonus, `🔥 ${streak} günlük seri bonusu`);
+  }
+
   return { ...goal, currentValue: newValue, completed };
 }
 
@@ -115,6 +125,11 @@ export async function checkAndAwardBadges(
   }
 
   return awarded;
+}
+
+export async function getAllBadges(): Promise<Badge[]> {
+  const db = await getDatabase();
+  return await db.getAllAsync<Badge>('SELECT * FROM badge ORDER BY id');
 }
 
 export async function getUserBadges(userProfileId: string): Promise<(Badge & { awardedAt: string })[]> {

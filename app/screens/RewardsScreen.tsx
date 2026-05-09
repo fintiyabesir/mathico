@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppContext } from '../context/AppContext';
-import { getUserBadges, getStreak } from '../../features/gamification/gamificationEngine';
+import { getUserBadges, getStreak, getAllBadges } from '../../features/gamification/gamificationEngine';
 import { getBalance, getTransactions } from '../../features/rewards-wallet/rewardsWallet';
 import { Badge, RewardTransaction } from '../../shared/types';
 import { AppTheme } from '../../shared/ui/theme';
@@ -13,6 +13,7 @@ import { useFocusEffect } from '@react-navigation/native';
 export default function RewardsScreen() {
   const { activeProfile, theme } = useAppContext();
   const [badges, setBadges] = useState<(Badge & { awardedAt: string })[]>([]);
+  const [allBadges, setAllBadges] = useState<Badge[]>([]);
   const [streak, setStreak] = useState(0);
   const [balance, setBalance] = useState(0);
   const [transactions, setTransactions] = useState<RewardTransaction[]>([]);
@@ -26,11 +27,13 @@ export default function RewardsScreen() {
         getStreak(activeProfile.id),
         getBalance(activeProfile.id),
         getTransactions(activeProfile.id, 10),
-      ]).then(([b, st, bal, txs]) => {
+        getAllBadges(),
+      ]).then(([b, st, bal, txs, all]) => {
         setBadges(b);
         setStreak(st);
         setBalance(bal);
         setTransactions(txs);
+        setAllBadges(all);
       });
     }, [activeProfile])
   );
@@ -79,23 +82,25 @@ export default function RewardsScreen() {
 
         {/* Badges */}
         <Text style={s.sectionTitle}>Rozetler</Text>
-        {badges.length === 0 ? (
-          <View style={s.empty}>
-            <Text style={s.emptyEmoji}>🎖️</Text>
-            <Text style={s.emptyText}>Henüz rozet kazanmadın</Text>
-            <Text style={s.emptySubText}>Seans tamamla ve rozetleri topla!</Text>
-          </View>
-        ) : (
-          <View style={s.badgesGrid}>
-            {badges.map(badge => (
-              <View key={badge.id} style={s.badgeCard}>
-                <Text style={s.badgeEmoji}>{badge.iconEmoji}</Text>
-                <Text style={s.badgeName}>{badge.name}</Text>
+        <View style={s.badgesGrid}>
+          {allBadges.map((badge, i) => {
+            const earned = badges.find(b => b.id === badge.id);
+            return (
+              <View key={badge.id} style={[
+                s.badgeCard,
+                earned ? s.badgeCardEarned : s.badgeCardLocked,
+              ]}>
+                <Text style={s.badgeEmoji}>{earned ? badge.iconEmoji : '🔒'}</Text>
+                <Text style={[s.badgeName, !earned && s.badgeNameLocked]}>{badge.name}</Text>
                 <Text style={s.badgeDesc}>{badge.description}</Text>
+                {earned
+                  ? <Text style={s.badgeDate}>✅ {new Date(earned.awardedAt).toLocaleDateString('tr-TR')}</Text>
+                  : <Text style={s.badgeLockLabel}>Kilitli</Text>
+                }
               </View>
-            ))}
-          </View>
-        )}
+            );
+          })}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -142,14 +147,40 @@ const styles = (theme: AppTheme) =>
     emptyEmoji: { fontSize: 48, marginBottom: theme.spacing.md },
     emptyText: { fontSize: theme.fontSizes.lg, fontWeight: 'bold', color: theme.colors.text },
     emptySubText: { fontSize: theme.fontSizes.sm, color: theme.colors.textMuted, textAlign: 'center', marginTop: 4 },
-    badgesGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: theme.spacing.md, gap: theme.spacing.sm, paddingBottom: theme.spacing.xl },
-    badgeCard: {
-      width: '44%', marginHorizontal: '3%',
-      backgroundColor: theme.colors.card, borderRadius: theme.borderRadius.lg,
-      padding: theme.spacing.md, alignItems: 'center',
-      borderWidth: 1, borderColor: theme.colors.border,
+    badgesGrid: {
+      flexDirection: 'row', flexWrap: 'wrap',
+      paddingHorizontal: theme.spacing.md,
+      gap: theme.spacing.sm,
+      paddingBottom: theme.spacing.xl,
+      marginTop: theme.spacing.sm,
     },
-    badgeEmoji: { fontSize: 36, marginBottom: theme.spacing.sm },
+    badgeCard: {
+      width: '30%',
+      flexGrow: 1,
+      padding: theme.spacing.sm,
+      paddingVertical: theme.spacing.md,
+      alignItems: 'center',
+      borderRadius: theme.borderRadius.lg,
+      borderWidth: 1.5,
+      borderColor: theme.colors.border,
+    },
+    badgeCardEarned: {
+      backgroundColor: theme.colors.card,
+      borderColor: theme.colors.primary + '55',
+      shadowColor: theme.colors.primary,
+      shadowOpacity: 0.12,
+      shadowRadius: 6,
+      elevation: 2,
+    },
+    badgeCardLocked: {
+      backgroundColor: theme.colors.surface,
+      borderColor: theme.colors.border,
+      opacity: 0.5,
+    },
+    badgeEmoji: { fontSize: 38, marginBottom: 6 },
     badgeName: { fontSize: theme.fontSizes.sm, fontWeight: 'bold', color: theme.colors.text, textAlign: 'center' },
-    badgeDesc: { fontSize: theme.fontSizes.xs, color: theme.colors.textMuted, textAlign: 'center', marginTop: 2 },
+    badgeNameLocked: { color: theme.colors.textMuted },
+    badgeDesc: { fontSize: theme.fontSizes.xs, color: theme.colors.textMuted, textAlign: 'center', marginTop: 2, lineHeight: 16 },
+    badgeDate: { fontSize: 10, color: theme.colors.primary, marginTop: 6, fontWeight: '700' },
+    badgeLockLabel: { fontSize: 10, color: theme.colors.textMuted, marginTop: 6 },
   });

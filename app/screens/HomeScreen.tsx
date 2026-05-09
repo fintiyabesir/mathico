@@ -3,7 +3,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useAppContext } from '../context/AppContext';
@@ -44,6 +44,12 @@ export default function HomeScreen(_props: Props) {
     setBalance(bal);
   }
 
+  function goToReports() {
+    navigation.dispatch(
+      CommonActions.navigate({ name: 'ReportsTab' })
+    );
+  }
+
   const goalProgress = dailyGoal
     ? Math.min((dailyGoal.currentValue / dailyGoal.targetValue) * 100, 100)
     : 0;
@@ -57,21 +63,28 @@ export default function HomeScreen(_props: Props) {
             <Text style={s.greeting}>Merhaba, {activeProfile?.displayName}! 👋</Text>
             <Text style={s.headerSub}>Bugün pratik yapmaya hazır mısın?</Text>
           </View>
-          <Text style={s.avatarLarge}>{activeProfile?.avatar}</Text>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('ProfileSelect')}
+            activeOpacity={0.7}
+            style={s.avatarBtn}
+          >
+            <Text style={s.avatarLarge}>{activeProfile?.avatar}</Text>
+            <Text style={s.switchLabel}>Değiştir</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Stats row */}
         <View style={s.statsRow}>
-          <View style={s.statCard}>
+          <TouchableOpacity style={s.statCard} onPress={goToReports} activeOpacity={0.75}>
             <Text style={s.statEmoji}>🔥</Text>
             <Text style={s.statValue}>{streak}</Text>
             <Text style={s.statLabel}>Gün Serisi</Text>
-          </View>
-          <View style={s.statCard}>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.statCard} onPress={goToReports} activeOpacity={0.75}>
             <Text style={s.statEmoji}>⭐</Text>
             <Text style={s.statValue}>{Math.round(balance)}</Text>
             <Text style={s.statLabel}>Puan</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Daily goal */}
@@ -148,7 +161,9 @@ const styles = (theme: ReturnType<typeof import('../../shared/ui/theme').getThem
     },
     greeting: { fontSize: theme.fontSizes.xl, fontWeight: 'bold', color: theme.colors.text },
     headerSub: { fontSize: theme.fontSizes.sm, color: theme.colors.textSecondary, marginTop: 2 },
+    avatarBtn: { alignItems: 'center' },
     avatarLarge: { fontSize: 44 },
+    switchLabel: { fontSize: theme.fontSizes.xs, color: theme.colors.primary, fontWeight: '600', marginTop: 2 },
     statsRow: { flexDirection: 'row', paddingHorizontal: theme.spacing.xl, gap: theme.spacing.md, marginBottom: theme.spacing.md },
     statCard: {
       flex: 1, backgroundColor: theme.colors.card,
@@ -178,15 +193,25 @@ const styles = (theme: ReturnType<typeof import('../../shared/ui/theme').getThem
     quickStartTitle: { fontSize: theme.fontSizes.lg, fontWeight: 'bold', color: '#FFFFFF' },
     quickStartSub: { fontSize: theme.fontSizes.sm, color: 'rgba(255,255,255,0.8)' },
     sectionTitle: { fontSize: theme.fontSizes.md, fontWeight: '600', color: theme.colors.text, paddingHorizontal: theme.spacing.xl, marginBottom: theme.spacing.sm },
-    opsGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: theme.spacing.md, gap: theme.spacing.sm, marginBottom: theme.spacing.sm },
+    opsGrid: {
+      flexDirection: 'row', flexWrap: 'wrap',
+      paddingHorizontal: theme.spacing.lg,
+      gap: theme.spacing.sm,
+      marginBottom: theme.spacing.sm,
+    },
     opCard: {
-      width: '46%', marginHorizontal: '2%',
-      backgroundColor: theme.colors.card, borderRadius: theme.borderRadius.lg,
-      padding: theme.spacing.lg, alignItems: 'center',
+      width: '47%',
+      backgroundColor: theme.colors.card,
+      borderRadius: theme.borderRadius.lg,
+      paddingVertical: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: theme.spacing.sm,
       borderWidth: 1, borderColor: theme.colors.border,
     },
-    opEmoji: { fontSize: 36, marginBottom: theme.spacing.sm },
-    opLabel: { fontSize: theme.fontSizes.md, fontWeight: '600', color: theme.colors.text },
+    opEmoji: { fontSize: 22 },
+    opLabel: { fontSize: theme.fontSizes.sm, fontWeight: '600', color: theme.colors.text },
     mixedBtn: {
       marginHorizontal: theme.spacing.xl, marginBottom: theme.spacing.xl,
       backgroundColor: theme.colors.secondary + '22',

@@ -27,6 +27,10 @@ export default function ParentScreen() {
   const [transactions, setTransactions] = useState<RewardTransaction[]>([]);
   const [spendAmount, setSpendAmount] = useState('');
   const [spendDesc, setSpendDesc] = useState('');
+  const [changingPin, setChangingPin] = useState(false);
+  const [currentPinInput, setCurrentPinInput] = useState('');
+  const [newPinInput, setNewPinInput] = useState('');
+  const [confirmPinInput, setConfirmPinInput] = useState('');
   const s = styles(theme);
 
   useFocusEffect(
@@ -81,6 +85,28 @@ export default function ParentScreen() {
     }
   }
 
+  async function handleChangePin() {
+    const storedPin = await SecureStore.getItemAsync(PARENT_PIN_KEY) ?? DEFAULT_PIN;
+    if (currentPinInput !== storedPin) {
+      Alert.alert('Hatalı PIN', 'Mevcut PIN yanlış.');
+      return;
+    }
+    if (newPinInput.length < 4) {
+      Alert.alert('Geçersiz PIN', 'Yeni PIN en az 4 haneli olmalı.');
+      return;
+    }
+    if (newPinInput !== confirmPinInput) {
+      Alert.alert('Uyuşmuyor', 'Yeni PIN ve onay eşleşmiyor.');
+      return;
+    }
+    await SecureStore.setItemAsync(PARENT_PIN_KEY, newPinInput);
+    setCurrentPinInput('');
+    setNewPinInput('');
+    setConfirmPinInput('');
+    setChangingPin(false);
+    Alert.alert('Başarılı', 'PIN başarıyla değiştirildi.');
+  }
+
   async function handleThemeChange(t: ThemeType) {
     setTheme(t);
     if (activeProfile) {
@@ -124,7 +150,7 @@ export default function ParentScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={s.header}>
           <Text style={s.title}>👨‍👩‍👧 Ebeveyn Modu</Text>
-          <TouchableOpacity onPress={() => setPinUnlocked(false)} style={s.lockBtn}>
+          <TouchableOpacity onPress={() => { setPinUnlocked(false); setPinInput(''); }} style={s.lockBtn}>
             <Text style={s.lockBtnText}>🔒 Kilitle</Text>
           </TouchableOpacity>
         </View>
@@ -156,6 +182,51 @@ export default function ParentScreen() {
           <TouchableOpacity style={s.spendBtn} onPress={handleSpend} activeOpacity={0.8}>
             <Text style={s.spendBtnText}>Puan Harca</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* Change PIN */}
+        <View style={s.card}>
+          <TouchableOpacity style={s.cardTitleRow} onPress={() => setChangingPin(v => !v)} activeOpacity={0.7}>
+            <Text style={s.cardTitle}>🔑 PIN Değiştir</Text>
+            <Text style={s.cardChevron}>{changingPin ? '▲' : '▼'}</Text>
+          </TouchableOpacity>
+          {changingPin && (
+            <>
+              <TextInput
+                style={s.input}
+                value={currentPinInput}
+                onChangeText={setCurrentPinInput}
+                keyboardType="number-pad"
+                secureTextEntry
+                maxLength={8}
+                placeholder="Mevcut PIN"
+                placeholderTextColor={theme.colors.textMuted}
+              />
+              <TextInput
+                style={[s.input, { marginTop: theme.spacing.sm }]}
+                value={newPinInput}
+                onChangeText={setNewPinInput}
+                keyboardType="number-pad"
+                secureTextEntry
+                maxLength={8}
+                placeholder="Yeni PIN"
+                placeholderTextColor={theme.colors.textMuted}
+              />
+              <TextInput
+                style={[s.input, { marginTop: theme.spacing.sm }]}
+                value={confirmPinInput}
+                onChangeText={setConfirmPinInput}
+                keyboardType="number-pad"
+                secureTextEntry
+                maxLength={8}
+                placeholder="Yeni PIN (tekrar)"
+                placeholderTextColor={theme.colors.textMuted}
+              />
+              <TouchableOpacity style={s.spendBtn} onPress={handleChangePin} activeOpacity={0.8}>
+                <Text style={s.spendBtnText}>PIN Kaydet</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
 
         {/* Theme selector */}
@@ -247,7 +318,9 @@ const styles = (theme: AppTheme) =>
       backgroundColor: theme.colors.card, borderRadius: theme.borderRadius.lg,
       padding: theme.spacing.md, borderWidth: 1, borderColor: theme.colors.border,
     },
-    cardTitle: { fontSize: theme.fontSizes.md, fontWeight: '600', color: theme.colors.text, marginBottom: theme.spacing.sm },
+    cardTitle: { fontSize: theme.fontSizes.md, fontWeight: '600', color: theme.colors.text },
+    cardTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.sm },
+    cardChevron: { fontSize: theme.fontSizes.sm, color: theme.colors.textMuted },
     input: {
       backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.md,
       padding: theme.spacing.sm, fontSize: theme.fontSizes.md, color: theme.colors.text,
