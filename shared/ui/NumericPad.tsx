@@ -44,7 +44,7 @@ export default function NumericPad({ value, onChange, onSubmit, theme, maxDigits
   return (
     <View style={s.container}>
       <View style={s.display}>
-        <Text style={s.displayText}>{value || '?'}</Text>
+        <Text style={s.displayText} allowFontScaling={false}>{value || '?'}</Text>
       </View>
       {buttons.map((row, ri) => (
         <View key={ri} style={s.row}>
@@ -55,7 +55,7 @@ export default function NumericPad({ value, onChange, onSubmit, theme, maxDigits
               onPress={() => handlePress(btn)}
               activeOpacity={0.7}
             >
-              <Text style={[s.btnText, btn === '⌫' && s.btnDeleteText]}>{btn}</Text>
+              <Text style={[s.btnText, btn === '⌫' && s.btnDeleteText]} allowFontScaling={false}>{btn}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -66,7 +66,7 @@ export default function NumericPad({ value, onChange, onSubmit, theme, maxDigits
         activeOpacity={0.8}
         disabled={value.length === 0}
       >
-        <Text style={s.okBtnText}>Cevapla</Text>
+        <Text style={s.okBtnText} allowFontScaling={false}>Cevapla</Text>
       </TouchableOpacity>
     </View>
   );

@@ -63,6 +63,29 @@ export function calculateAbandonPenalty(ageGroup: AgeGroup, levelNo: number): nu
   return 0;
 }
 
+export function computeLiveScore(
+  basePoint: number,
+  levelNo: number,
+  elapsedMs: number,
+  expectedTimeMs: number,
+  rollingAccuracy: number,
+): number {
+  const diff = getDifficultyMultiplier(levelNo);
+  const speed = getSpeedMultiplier(elapsedMs, expectedTimeMs);
+  const mastery = getMasteryDecay(rollingAccuracy, levelNo);
+  return Math.max(1, Math.round(basePoint * diff * speed * mastery));
+}
+
+export function computeMaxScore(
+  basePoint: number,
+  levelNo: number,
+  rollingAccuracy: number,
+): number {
+  const diff = getDifficultyMultiplier(levelNo);
+  const mastery = getMasteryDecay(rollingAccuracy, levelNo);
+  return Math.max(1, Math.round(basePoint * diff * MAX_SPEED_MULTIPLIER * mastery));
+}
+
 export function computeMedian(values: number[]): number {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);

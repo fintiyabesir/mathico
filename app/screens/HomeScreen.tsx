@@ -59,8 +59,8 @@ export default function HomeScreen(_props: Props) {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={s.header}>
-          <View>
-            <Text style={s.greeting}>Merhaba, {activeProfile?.displayName}! 👋</Text>
+          <View style={s.headerInfo}>
+            <Text style={s.greeting} numberOfLines={2}>Merhaba, {activeProfile?.displayName}! 👋</Text>
             <Text style={s.headerSub}>Bugün pratik yapmaya hazır mısın?</Text>
           </View>
           <TouchableOpacity
@@ -161,6 +161,7 @@ const styles = (theme: ReturnType<typeof import('../../shared/ui/theme').getThem
     },
     greeting: { fontSize: theme.fontSizes.xl, fontWeight: 'bold', color: theme.colors.text },
     headerSub: { fontSize: theme.fontSizes.sm, color: theme.colors.textSecondary, marginTop: 2 },
+    headerInfo: { flex: 1, flexShrink: 1, marginRight: theme.spacing.sm },
     avatarBtn: { alignItems: 'center' },
     avatarLarge: { fontSize: 44 },
     switchLabel: { fontSize: theme.fontSizes.xs, color: theme.colors.primary, fontWeight: '600', marginTop: 2 },

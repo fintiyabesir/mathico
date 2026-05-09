@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Alert, BackHandler
+  View, Text, TouchableOpacity, StyleSheet, Alert, BackHandler, useWindowDimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -11,7 +11,7 @@ import { getDatabase } from '../../shared/storage/database';
 import {
   generateQuestion, getSkillIdForOperation, getLevelParams, shouldUseMultipleChoice
 } from '../../features/practice/questionEngine';
-import { calculateScore, calculateAbandonPenalty } from '../../features/scoring/scoringEngine';
+import { calculateScore, calculateAbandonPenalty, computeLiveScore, computeMaxScore } from '../../features/scoring/scoringEngine';
 import { getOrCreateLevelProgress, updateLevelProgressAfterAnswer } from '../../features/progression/progressionEngine';
 import { addPoints, spendPoints } from '../../features/rewards-wallet/rewardsWallet';
 import { incrementDailyGoal } from '../../features/gamification/gamificationEngine';
@@ -60,11 +60,17 @@ export default function SessionScreen({ navigation, route }: Props) {
   const [canSecondChance, setCanSecondChance] = useState(false);
   const [usedSecondChance, setUsedSecondChance] = useState(false);
   const [currentQuestionDbId, setCurrentQuestionDbId] = useState<string | null>(null);
+  const [liveScore, setLiveScore] = useState(0);
+  const [rollingAccuracy, setRollingAccuracy] = useState(0.5);
   const feedbackTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const liveScoreTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     initSession();
-    return () => { if (feedbackTimeout.current) clearTimeout(feedbackTimeout.current); };
+    return () => {
+      if (feedbackTimeout.current) clearTimeout(feedbackTimeout.current);
+      if (liveScoreTimer.current) clearInterval(liveScoreTimer.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -118,11 +124,31 @@ export default function SessionScreen({ navigation, route }: Props) {
     setQuestionStartTime(Date.now());
     setCurrentQuestionDbId(questionDbId);
     setCurrentQ(qIndex);
+
+    // Start live score ticker
+    setRollingAccuracy(progress.rollingAccuracy);
+    const initScore = computeMaxScore(levelInfo.basePoint, level, progress.rollingAccuracy);
+    setLiveScore(initScore);
+    if (liveScoreTimer.current) clearInterval(liveScoreTimer.current);
+    const _startTime = Date.now();
+    const _basePoint = levelInfo.basePoint;
+    const _expectedTimeMs = levelInfo.expectedTimeMs;
+    const _level = level;
+    const _ra = progress.rollingAccuracy;
+    liveScoreTimer.current = setInterval(() => {
+      const elapsed = Date.now() - _startTime;
+      setLiveScore(computeLiveScore(_basePoint, _level, elapsed, _expectedTimeMs, _ra));
+    }, 100);
   }
 
   async function submitAnswer(answer: string) {
     if (!activeProfile || !question || !currentLevelParams || !currentQuestionDbId) return;
     if (feedback !== null) return;
+
+    if (liveScoreTimer.current) {
+      clearInterval(liveScoreTimer.current);
+      liveScoreTimer.current = null;
+    }
 
     const responseTimeMs = Date.now() - questionStartTime;
     const isCorrect = answer.trim() === String(question.answer);
@@ -236,6 +262,7 @@ export default function SessionScreen({ navigation, route }: Props) {
   }
 
   const s = styles(theme);
+  const { height: windowHeight } = useWindowDimensions();
 
   if (!question) {
     return (
@@ -249,6 +276,18 @@ export default function SessionScreen({ navigation, route }: Props) {
 
   const opSymbols: Record<string, string> = { addition: '+', subtraction: '-', multiplication: '×', division: '÷' };
   const opSymbol = opSymbols[question.operation] ?? '+';
+
+  const maxPossibleScore = currentLevelParams
+    ? computeMaxScore(currentLevelParams.basePoint, currentLevel, rollingAccuracy)
+    : 1;
+  const liveScorePercent = maxPossibleScore > 0
+    ? Math.round((liveScore / maxPossibleScore) * 100)
+    : 100;
+  const liveScoreColor = liveScorePercent > 65
+    ? theme.colors.correct
+    : liveScorePercent > 35
+    ? theme.colors.warning
+    : theme.colors.incorrect;
 
   return (
     <SafeAreaView style={[s.container, feedback === 'correct' && s.bgCorrect, feedback === 'incorrect' && s.bgIncorrect]}>
@@ -269,11 +308,30 @@ export default function SessionScreen({ navigation, route }: Props) {
       </View>
 
       {/* Question */}
-      <View style={s.questionContainer}>
+      <View style={[s.questionContainer, { minHeight: Math.max(windowHeight * 0.28, 130) }]}>
         <Text style={s.operationLabel}>{OPERATION_LABELS[question.operation]}</Text>
-        <Text style={s.questionText}>
+        <Text
+          style={s.questionText}
+          adjustsFontSizeToFit
+          numberOfLines={1}
+          minimumFontScale={0.4}
+        >
           {question.operand1} {opSymbol} {question.operand2} = ?
         </Text>
+        {!feedback && liveScore > 0 && (
+          <View style={s.liveScoreWrap}>
+            <Text style={[s.liveScoreVal, { color: liveScoreColor }]} allowFontScaling={false}>
+              ⭐ {liveScore} puan
+            </Text>
+            <View style={s.liveScoreBarBg}>
+              <View style={[s.liveScoreBarFill, {
+                width: `${liveScorePercent}%`,
+                backgroundColor: liveScoreColor,
+              }]} />
+            </View>
+          </View>
+        )}
+
         {feedback && (
           <View style={[s.feedbackBadge, feedback === 'correct' ? s.feedbackCorrect : s.feedbackIncorrect]}>
             <Text style={s.feedbackText}>
@@ -355,5 +413,26 @@ const styles = (theme: AppTheme) =>
     feedbackCorrect: { backgroundColor: theme.colors.correct },
     feedbackIncorrect: { backgroundColor: theme.colors.incorrect },
     feedbackText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: theme.fontSizes.md },
+    liveScoreWrap: {
+      marginTop: theme.spacing.lg,
+      alignItems: 'center',
+      width: '75%',
+    },
+    liveScoreVal: {
+      fontSize: theme.fontSizes.md,
+      fontWeight: 'bold',
+      marginBottom: theme.spacing.xs,
+    },
+    liveScoreBarBg: {
+      width: '100%',
+      height: 8,
+      backgroundColor: theme.colors.border,
+      borderRadius: 4,
+      overflow: 'hidden',
+    },
+    liveScoreBarFill: {
+      height: '100%',
+      borderRadius: 4,
+    },
     answerContainer: { padding: theme.spacing.md, paddingBottom: theme.spacing.xl },
   });

@@ -42,7 +42,7 @@ export default function MultipleChoice({
           activeOpacity={0.75}
           disabled={disabled}
         >
-          <Text style={s.btnText}>{choice}</Text>
+          <Text style={s.btnText} adjustsFontSizeToFit numberOfLines={1} minimumFontScale={0.5}>{choice}</Text>
         </TouchableOpacity>
       ))}
     </View>
