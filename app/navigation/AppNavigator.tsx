@@ -15,6 +15,8 @@ import SessionEndScreen from '../screens/SessionEndScreen';
 import ReportsScreen from '../screens/ReportsScreen';
 import RewardsScreen from '../screens/RewardsScreen';
 import ParentScreen from '../screens/ParentScreen';
+import ScreenTimeRedeemScreen from '../screens/ScreenTimeRedeemScreen';
+import MultiplicationTableScreen from '../screens/MultiplicationTableScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -90,6 +92,8 @@ export default function AppNavigator() {
         <Stack.Screen name="Session" component={SessionScreen} options={{ gestureEnabled: false }} />
         <Stack.Screen name="SessionEnd" component={SessionEndScreen} options={{ gestureEnabled: false }} />
         <Stack.Screen name="Parent" component={ParentScreen} />
+        <Stack.Screen name="ScreenTimeRedeem" component={ScreenTimeRedeemScreen} options={{ headerShown: true, title: 'Ekran Süresi Kazan' }} />
+        <Stack.Screen name="MultiplicationTable" component={MultiplicationTableScreen} options={{ headerShown: true, title: 'Çarpım Tablosu' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

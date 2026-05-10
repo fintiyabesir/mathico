@@ -14,6 +14,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { updateProfileTheme } from '../../features/profile/profileService';
 import { RootStackParamList } from '../navigation/types';
 import * as SecureStore from 'expo-secure-store';
+import ScreenTimeRewardsSection from './components/ScreenTimeRewardsSection';
+import ScreenTimeReportSection from './components/ScreenTimeReportSection';
 
 const PARENT_PIN_KEY = 'mathico_parent_pin';
 const DEFAULT_PIN = '1234';
@@ -248,6 +250,16 @@ export default function ParentScreen() {
             })}
           </View>
         </View>
+
+        {/* Screen Time Rewards */}
+        {activeProfile && (
+          <ScreenTimeRewardsSection profileId={activeProfile.id} theme={theme} />
+        )}
+
+        {/* Screen Time Activity Report */}
+        {activeProfile && (
+          <ScreenTimeReportSection profileId={activeProfile.id} theme={theme} />
+        )}
 
         {/* Transaction history */}
         <View style={s.card}>

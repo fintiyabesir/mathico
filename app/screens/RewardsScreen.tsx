@@ -1,8 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView
+  View, Text, StyleSheet, ScrollView, TouchableOpacity
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/types';
 import { useAppContext } from '../context/AppContext';
 import { getUserBadges, getStreak, getAllBadges } from '../../features/gamification/gamificationEngine';
 import { getBalance, getTransactions } from '../../features/rewards-wallet/rewardsWallet';
@@ -12,6 +15,7 @@ import { useFocusEffect } from '@react-navigation/native';
 
 export default function RewardsScreen() {
   const { activeProfile, theme } = useAppContext();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [badges, setBadges] = useState<(Badge & { awardedAt: string })[]>([]);
   const [allBadges, setAllBadges] = useState<Badge[]>([]);
   const [streak, setStreak] = useState(0);
@@ -45,7 +49,15 @@ export default function RewardsScreen() {
           <Text style={s.title}>🏆 Ödüller</Text>
         </View>
 
-        {/* Streak */}
+        {/* Screen Time Redeem shortcut */}
+        <TouchableOpacity
+          style={[s.streakCard, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+          onPress={() => navigation.navigate('ScreenTimeRedeem')}
+          activeOpacity={0.8}
+        >
+          <Text style={{ fontSize: theme.fontSizes.md, color: theme.colors.text, fontWeight: '600' }}>🎮 Ekran Süresi Kazan</Text>
+          <Text style={{ color: theme.colors.textMuted }}>▶</Text>
+        </TouchableOpacity>
         <View style={s.streakCard}>
           <Text style={s.streakEmoji}>🔥</Text>
           <View>

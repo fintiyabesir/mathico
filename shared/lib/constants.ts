@@ -74,6 +74,10 @@ export const OPERATION_LABELS: Record<string, string> = {
   multiplication: 'Çarpma',
   division: 'Bölme',
   mixed: 'Karışık',
+  missing_number: 'Eksik Sayı',
+  verify: 'Doğru mu, Yanlış mı?',
+  compare: 'Karşılaştır',
+  pattern: 'Örüntü',
 };
 
 export const OPERATION_SYMBOLS: Record<string, string> = {

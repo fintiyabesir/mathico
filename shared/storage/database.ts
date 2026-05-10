@@ -143,6 +143,7 @@ async function initSchema(db: SQLite.SQLiteDatabase): Promise<void> {
   `);
 
   await seedSkillsAndLevels(db);
+  await migrateExtendedSkills(db);
   await seedBadges(db);
 }
 
@@ -210,6 +211,74 @@ function getSkillLevels(operation: string) {
     ],
   };
   return base[operation as keyof typeof base] || base.addition;
+}
+
+/** Adds new extended question-type skills without touching existing arithmetic skills. */
+async function migrateExtendedSkills(db: SQLite.SQLiteDatabase): Promise<void> {
+  const extendedSkills = [
+    {
+      id: 'skill_missing_number',
+      operationType: 'missing_number',
+      levels: [
+        { levelNo: 1, expectedTimeMs: 10000, basePoint: 12, params: { minNum: 1, maxNum: 9 } },
+        { levelNo: 2, expectedTimeMs: 12000, basePoint: 18, params: { minNum: 1, maxNum: 20 } },
+        { levelNo: 3, expectedTimeMs: 15000, basePoint: 25, params: { minNum: 1, maxNum: 50 } },
+      ],
+    },
+    {
+      id: 'skill_verify',
+      operationType: 'verify',
+      levels: [
+        { levelNo: 1, expectedTimeMs: 8000,  basePoint: 10, params: { minNum: 1, maxNum: 9 } },
+        { levelNo: 2, expectedTimeMs: 10000, basePoint: 15, params: { minNum: 1, maxNum: 20 } },
+        { levelNo: 3, expectedTimeMs: 12000, basePoint: 22, params: { minNum: 1, maxNum: 50 } },
+      ],
+    },
+    {
+      id: 'skill_compare',
+      operationType: 'compare',
+      levels: [
+        { levelNo: 1, expectedTimeMs: 6000,  basePoint: 8,  params: { minNum: 10, maxNum: 99 } },
+        { levelNo: 2, expectedTimeMs: 8000,  basePoint: 12, params: { minNum: 10, maxNum: 999 } },
+        { levelNo: 3, expectedTimeMs: 10000, basePoint: 18, params: { minNum: 1,  maxNum: 9999 } },
+      ],
+    },
+    {
+      id: 'skill_pattern',
+      operationType: 'pattern',
+      levels: [
+        { levelNo: 1, expectedTimeMs: 12000, basePoint: 15, params: { minNum: 1, maxNum: 20 } },
+        { levelNo: 2, expectedTimeMs: 15000, basePoint: 22, params: { minNum: 1, maxNum: 50 } },
+        { levelNo: 3, expectedTimeMs: 18000, basePoint: 32, params: { minNum: 1, maxNum: 100 } },
+      ],
+    },
+  ];
+
+  for (const skill of extendedSkills) {
+    const exists = await db.getFirstAsync<{ count: number }>(
+      'SELECT COUNT(*) as count FROM skill WHERE id = ?',
+      [skill.id],
+    );
+    if (exists && exists.count > 0) continue;
+
+    await db.runAsync(
+      'INSERT INTO skill (id, operationType, topicType) VALUES (?, ?, ?)',
+      [skill.id, skill.operationType, skill.operationType],
+    );
+    for (const lvl of skill.levels) {
+      await db.runAsync(
+        'INSERT INTO skill_level (id, skillId, levelNo, expectedTimeMs, parametersJson, basePoint) VALUES (?, ?, ?, ?, ?, ?)',
+        [
+          `${skill.id}_level_${lvl.levelNo}`,
+          skill.id,
+          lvl.levelNo,
+          lvl.expectedTimeMs,
+          JSON.stringify(lvl.params),
+          lvl.basePoint,
+        ],
+      );
+    }
+  }
 }
 
 async function seedBadges(db: SQLite.SQLiteDatabase): Promise<void> {

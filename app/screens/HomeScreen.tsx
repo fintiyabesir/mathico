@@ -121,22 +121,25 @@ export default function HomeScreen(_props: Props) {
         {/* Operations */}
         <Text style={s.sectionTitle}>İşlem Seç</Text>
         <View style={s.opsGrid}>
-          {(['addition', 'subtraction', 'multiplication', 'division'] as const).map(op => {
-            const emojis: Record<string, string> = {
-              addition: '➕', subtraction: '➖', multiplication: '✖️', division: '➗'
-            };
-            return (
-              <TouchableOpacity
-                key={op}
-                style={s.opCard}
-                onPress={() => navigation.navigate('Session', { mode: 'operation', operation: op })}
-                activeOpacity={0.8}
-              >
-                <Text style={s.opEmoji}>{emojis[op]}</Text>
-                <Text style={s.opLabel}>{OPERATION_LABELS[op]}</Text>
-              </TouchableOpacity>
-            );
-          })}
+          {([
+            { op: 'addition',       emoji: '➕', mode: 'operation' as const, operation: 'addition' as const },
+            { op: 'subtraction',    emoji: '➖', mode: 'operation' as const, operation: 'subtraction' as const },
+            { op: 'multiplication', emoji: '✖️', mode: 'operation' as const, operation: 'multiplication' as const },
+            { op: 'division',       emoji: '➗', mode: 'operation' as const, operation: 'division' as const },
+            { op: 'verify',         emoji: '🔍', mode: 'verify' as const,    operation: 'mixed' as const },
+            { op: 'compare',        emoji: '⚖️', mode: 'compare' as const,   operation: 'mixed' as const },
+            { op: 'pattern',        emoji: '🔗', mode: 'pattern' as const,   operation: 'mixed' as const },
+          ]).map(item => (
+            <TouchableOpacity
+              key={item.op}
+              style={s.opCard}
+              onPress={() => navigation.navigate('Session', { mode: item.mode, operation: item.operation })}
+              activeOpacity={0.8}
+            >
+              <Text style={s.opEmoji}>{item.emoji}</Text>
+              <Text style={s.opLabel}>{OPERATION_LABELS[item.op]}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* Mixed mode */}
@@ -147,6 +150,36 @@ export default function HomeScreen(_props: Props) {
         >
           <Text style={s.mixedBtnText}>🎲  Karışık Mod</Text>
         </TouchableOpacity>
+
+        {/* Special drill modes */}
+        <Text style={s.sectionTitle}>Özel Alıştırmalar</Text>
+        <View style={s.extGrid}>
+          {[
+            {
+              emoji: '🔢',
+              label: 'Eksik Sayı',
+              sub: '7 + ? = 12',
+              onPress: () => navigation.navigate('Session', { mode: 'missing_number', operation: 'mixed' }),
+            },
+            {
+              emoji: '✖️',
+              label: 'Çarpım Tablosu',
+              sub: 'Tablo seç & çalış',
+              onPress: () => navigation.navigate('MultiplicationTable'),
+            },
+          ].map((item) => (
+            <TouchableOpacity
+              key={item.label}
+              style={s.extCard}
+              onPress={item.onPress}
+              activeOpacity={0.8}
+            >
+              <Text style={s.extEmoji}>{item.emoji}</Text>
+              <Text style={s.extLabel}>{item.label}</Text>
+              <Text style={s.extSub}>{item.sub}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -214,10 +247,30 @@ const styles = (theme: ReturnType<typeof import('../../shared/ui/theme').getThem
     opEmoji: { fontSize: 22 },
     opLabel: { fontSize: theme.fontSizes.sm, fontWeight: '600', color: theme.colors.text },
     mixedBtn: {
-      marginHorizontal: theme.spacing.xl, marginBottom: theme.spacing.xl,
+      marginHorizontal: theme.spacing.xl, marginBottom: theme.spacing.md,
       backgroundColor: theme.colors.secondary + '22',
       borderRadius: theme.borderRadius.lg, padding: theme.spacing.md,
       alignItems: 'center', borderWidth: 2, borderColor: theme.colors.secondary,
     },
     mixedBtnText: { fontSize: theme.fontSizes.md, fontWeight: '600', color: theme.colors.text },
+    extGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      paddingHorizontal: theme.spacing.lg,
+      gap: theme.spacing.sm,
+      marginBottom: theme.spacing.xl,
+    },
+    extCard: {
+      width: '47%',
+      backgroundColor: theme.colors.card,
+      borderRadius: theme.borderRadius.lg,
+      paddingVertical: theme.spacing.md,
+      paddingHorizontal: theme.spacing.sm,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    extEmoji: { fontSize: 28, marginBottom: 4 },
+    extLabel: { fontSize: theme.fontSizes.sm, fontWeight: '700', color: theme.colors.text, textAlign: 'center' },
+    extSub: { fontSize: theme.fontSizes.xs, color: theme.colors.textMuted, marginTop: 2, textAlign: 'center' },
   });

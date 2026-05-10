@@ -1,10 +1,10 @@
 export type AgeGroup = '4-6' | '7-9' | '10-12' | '13-17' | '18+';
-export type OperationType = 'addition' | 'subtraction' | 'multiplication' | 'division' | 'mixed';
+export type OperationType = 'addition' | 'subtraction' | 'multiplication' | 'division' | 'mixed' | 'missing_number' | 'verify' | 'compare' | 'pattern';
 export type DifficultyPreference = 'easy' | 'medium' | 'hard';
 export type ThemeType = 'child' | 'teen' | 'adult';
 export type PeriodType = 'daily' | 'weekly' | 'monthly';
 export type RewardTransactionType = 'earned' | 'spent';
-export type SessionMode = 'quick' | 'operation' | 'daily_goal';
+export type SessionMode = 'quick' | 'operation' | 'daily_goal' | 'times_table' | 'missing_number' | 'verify' | 'compare' | 'pattern';
 
 export interface UserProfile {
   id: string;
@@ -120,12 +120,24 @@ export interface PerformanceSnapshot {
   metricsJson: string;
 }
 
+export type QuestionType = 'arithmetic' | 'missing_number' | 'verify' | 'compare' | 'pattern';
+export type MissingPosition = 'left' | 'right' | 'result';
+export type CompareMode = 'greater' | 'lesser';
+
 export interface QuestionPayload {
   operand1: number;
   operand2: number;
   operation: OperationType;
   answer: number;
-  choices?: number[]; // for multiple choice
+  choices?: number[];
+  // Extended question types
+  questionType?: QuestionType;
+  missingPosition?: MissingPosition;   // for missing_number
+  isCorrectStatement?: boolean;         // for verify
+  wrongAnswer?: number;                 // for verify: wrong answer shown in the statement
+  patternSequence?: (number | null)[]; // for pattern: sequence with null at missing position
+  patternStep?: number;                 // for pattern: common difference
+  compareMode?: CompareMode;            // for compare
 }
 
 export interface SessionResult {

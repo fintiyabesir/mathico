@@ -11,6 +11,13 @@ import { getDatabase } from '../../shared/storage/database';
 import {
   generateQuestion, getSkillIdForOperation, getLevelParams, shouldUseMultipleChoice
 } from '../../features/practice/questionEngine';
+import {
+  generateMissingNumberQuestion,
+  generateVerifyQuestion,
+  generateCompareQuestion,
+  generatePatternQuestion,
+  generateTimesTableQuestion,
+} from '../../features/practice/extendedGenerators';
 import { calculateScore, calculateAbandonPenalty, computeLiveScore, computeMaxScore } from '../../features/scoring/scoringEngine';
 import { getOrCreateLevelProgress, updateLevelProgressAfterAnswer } from '../../features/progression/progressionEngine';
 import { addPoints, spendPoints } from '../../features/rewards-wallet/rewardsWallet';
@@ -83,25 +90,67 @@ export default function SessionScreen({ navigation, route }: Props) {
 
   async function initSession() {
     if (!activeProfile) return;
-    const db = await getDatabase();
-    await db.runAsync(
-      'INSERT INTO session (id, userProfileId, mode, startedAt, completed, pendingPoints, finalizedPoints) VALUES (?, ?, ?, ?, 0, 0, 0)',
-      [sessionId, activeProfile.id, mode, new Date().toISOString()]
-    );
-    await loadNextQuestion(0);
+    try {
+      const db = await getDatabase();
+      await db.runAsync(
+        'INSERT INTO session (id, userProfileId, mode, startedAt, completed, pendingPoints, finalizedPoints) VALUES (?, ?, ?, ?, 0, 0, 0)',
+        [sessionId, activeProfile.id, mode, new Date().toISOString()]
+      );
+      await loadNextQuestion(0);
+    } catch (e) {
+      Alert.alert('Hata', `Seans başlatılamadı: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 
   async function loadNextQuestion(qIndex: number) {
     if (!activeProfile) return;
-    const op = pickOperation(mode, operation);
-    const skillId = await getSkillIdForOperation(op);
+
+    // Determine skill and arithmetic operation for this question
+    let skillId: string;
+    let op: OperationType;
+    const arithmeticOps: OperationType[] = ['addition', 'subtraction', 'multiplication', 'division'];
+
+    if (mode === 'times_table') {
+      op = 'multiplication';
+      skillId = 'skill_multiplication';
+    } else if (mode === 'missing_number') {
+      op = (operation === 'mixed' || !arithmeticOps.includes(operation))
+        ? arithmeticOps[Math.floor(Math.random() * arithmeticOps.length)]
+        : operation;
+      skillId = 'skill_missing_number';
+    } else if (mode === 'verify' || mode === 'compare' || mode === 'pattern') {
+      op = mode as OperationType;
+      skillId = `skill_${mode}`;
+    } else {
+      op = pickOperation(mode, operation);
+      skillId = await getSkillIdForOperation(op);
+    }
+
     const progress = await getOrCreateLevelProgress(activeProfile.id, skillId, 1);
     const level = progress.currentLevel;
-    const levelInfo = await getLevelParams(skillId, level);
-    if (!levelInfo) return;
+    const levelInfo = await getLevelParams(skillId, level)
+      ?? { expectedTimeMs: 10000, basePoint: 10, parametersJson: '{}' };
 
     const useMulti = shouldUseMultipleChoice(level, activeProfile.ageGroup);
-    const q = generateQuestion(op, level, levelInfo.parametersJson, useMulti);
+
+    let q: QuestionPayload;
+    if (mode === 'times_table') {
+      q = generateTimesTableQuestion(route.params.tableNumber ?? 2, useMulti);
+    } else if (mode === 'missing_number') {
+      q = generateMissingNumberQuestion(op, level, useMulti);
+    } else if (mode === 'verify') {
+      q = generateVerifyQuestion(level);
+    } else if (mode === 'compare') {
+      q = generateCompareQuestion(level);
+    } else if (mode === 'pattern') {
+      q = generatePatternQuestion(level, useMulti);
+    } else {
+      q = generateQuestion(op, level, levelInfo.parametersJson, useMulti);
+    }
+
+    // verify and compare always use their own choices
+    const effectiveMultipleChoice =
+      useMulti || q.questionType === 'verify' || q.questionType === 'compare';
 
     // Persist question to DB
     const questionDbId = generateId();
@@ -114,7 +163,7 @@ export default function SessionScreen({ navigation, route }: Props) {
     setCurrentSkillId(skillId);
     setCurrentLevel(level);
     setCurrentLevelParams(levelInfo);
-    setIsMultipleChoice(useMulti);
+    setIsMultipleChoice(effectiveMultipleChoice);
     setQuestion(q);
     setInputValue('');
     setSelectedAnswer(undefined);
@@ -274,8 +323,56 @@ export default function SessionScreen({ navigation, route }: Props) {
     );
   }
 
-  const opSymbols: Record<string, string> = { addition: '+', subtraction: '-', multiplication: '×', division: '÷' };
+  const opSymbols: Record<string, string> = { addition: '+', subtraction: '−', multiplication: '×', division: '÷' };
   const opSymbol = opSymbols[question.operation] ?? '+';
+
+  // ── Helpers for extended question types ──────────────────────────────────
+
+  function computeEquationResult(a: number, b: number, op: string): number {
+    switch (op) {
+      case 'addition':       return a + b;
+      case 'subtraction':    return a - b;
+      case 'multiplication': return a * b;
+      case 'division':       return Math.floor(a / b);
+      default:               return 0;
+    }
+  }
+
+  function getOperationLabel(): string {
+    if (question.questionType === 'compare') {
+      return question.compareMode === 'greater' ? 'Hangisi büyük?' : 'Hangisi küçük?';
+    }
+    if (mode === 'times_table') {
+      return `${route.params.tableNumber ?? '?'}× Tablosu`;
+    }
+    return OPERATION_LABELS[question.operation] ?? question.operation;
+  }
+
+  function getQuestionText(): string {
+    switch (question.questionType) {
+      case 'missing_number': {
+        const full = computeEquationResult(question.operand1, question.operand2, question.operation);
+        const left  = question.missingPosition === 'left'   ? '?' : String(question.operand1);
+        const right = question.missingPosition === 'right'  ? '?' : String(question.operand2);
+        const res   = question.missingPosition === 'result' ? '?' : String(full);
+        return `${left} ${opSymbol} ${right} = ${res}`;
+      }
+      case 'verify': {
+        const shown = question.isCorrectStatement
+          ? computeEquationResult(question.operand1, question.operand2, question.operation)
+          : question.wrongAnswer!;
+        return `${question.operand1} ${opSymbol} ${question.operand2} = ${shown}`;
+      }
+      case 'compare':
+        return `${question.operand1}   vs   ${question.operand2}`;
+      case 'pattern':
+        return (question.patternSequence ?? [])
+          .map((v) => (v === null ? '?' : String(v)))
+          .join(',  ');
+      default:
+        return `${question.operand1} ${opSymbol} ${question.operand2} = ?`;
+    }
+  }
 
   const maxPossibleScore = currentLevelParams
     ? computeMaxScore(currentLevelParams.basePoint, currentLevel, rollingAccuracy)
@@ -288,6 +385,9 @@ export default function SessionScreen({ navigation, route }: Props) {
     : liveScorePercent > 35
     ? theme.colors.warning
     : theme.colors.incorrect;
+
+  const isVerify = question.questionType === 'verify';
+  const feedbackDisabled = feedback === 'correct' || (feedback === 'incorrect' && !usedSecondChance);
 
   return (
     <SafeAreaView style={[s.container, feedback === 'correct' && s.bgCorrect, feedback === 'incorrect' && s.bgIncorrect]}>
@@ -309,15 +409,18 @@ export default function SessionScreen({ navigation, route }: Props) {
 
       {/* Question */}
       <View style={[s.questionContainer, { minHeight: Math.max(windowHeight * 0.28, 130) }]}>
-        <Text style={s.operationLabel}>{OPERATION_LABELS[question.operation]}</Text>
+        <Text style={s.operationLabel}>{getOperationLabel()}</Text>
         <Text
           style={s.questionText}
           adjustsFontSizeToFit
-          numberOfLines={1}
-          minimumFontScale={0.4}
+          numberOfLines={question.questionType === 'pattern' ? 2 : 1}
+          minimumFontScale={0.35}
         >
-          {question.operand1} {opSymbol} {question.operand2} = ?
+          {getQuestionText()}
         </Text>
+        {isVerify && !feedback && (
+          <Text style={s.verifyHint}>Yukarıdaki işlem doğru mu?</Text>
+        )}
         {!feedback && liveScore > 0 && (
           <View style={s.liveScoreWrap}>
             <Text style={[s.liveScoreVal, { color: liveScoreColor }]} allowFontScaling={false}>
@@ -343,13 +446,43 @@ export default function SessionScreen({ navigation, route }: Props) {
 
       {/* Answer input */}
       <View style={s.answerContainer}>
-        {isMultipleChoice && question.choices ? (
+        {isVerify ? (
+          /* Doğru / Yanlış buttons */
+          <View style={s.verifyRow}>
+            {([
+              { value: '1', label: '✓  Doğru', color: theme.colors.correct },
+              { value: '0', label: '✗  Yanlış', color: theme.colors.incorrect },
+            ] as const).map(({ value, label, color }) => {
+              let btnStyle: object[] = [s.verifyBtn];
+              if (feedbackDisabled && selectedAnswer === value) {
+                btnStyle = [
+                  s.verifyBtn,
+                  value === String(question.answer) ? s.verifyBtnCorrect : s.verifyBtnWrong,
+                ];
+              }
+              if (feedbackDisabled && value === String(question.answer)) {
+                btnStyle = [s.verifyBtn, s.verifyBtnCorrect];
+              }
+              return (
+                <TouchableOpacity
+                  key={value}
+                  style={btnStyle}
+                  onPress={() => !feedbackDisabled && submitAnswer(value)}
+                  activeOpacity={0.75}
+                  disabled={feedbackDisabled}
+                >
+                  <Text style={[s.verifyBtnText, { color }]}>{label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ) : isMultipleChoice && question.choices ? (
           <MultipleChoice
             choices={question.choices}
             onSelect={submitAnswer}
             theme={theme}
-            disabled={feedback === 'correct' || (feedback === 'incorrect' && !usedSecondChance)}
-            correctAnswer={feedback === 'correct' || (feedback === 'incorrect' && !usedSecondChance) ? String(question.answer) : undefined}
+            disabled={feedbackDisabled}
+            correctAnswer={feedbackDisabled ? String(question.answer) : undefined}
             selectedAnswer={selectedAnswer}
           />
         ) : (
@@ -435,4 +568,38 @@ const styles = (theme: AppTheme) =>
       borderRadius: 4,
     },
     answerContainer: { padding: theme.spacing.md, paddingBottom: theme.spacing.xl },
+    verifyHint: {
+      fontSize: theme.fontSizes.sm,
+      color: theme.colors.textMuted,
+      marginTop: theme.spacing.sm,
+      fontStyle: 'italic',
+    },
+    verifyRow: {
+      flexDirection: 'row',
+      gap: theme.spacing.md,
+      justifyContent: 'space-between',
+    },
+    verifyBtn: {
+      flex: 1,
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.borderRadius.lg,
+      paddingVertical: theme.spacing.xl,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: theme.colors.border,
+      minHeight: 90,
+    },
+    verifyBtnCorrect: {
+      backgroundColor: theme.colors.correct + '22',
+      borderColor: theme.colors.correct,
+    },
+    verifyBtnWrong: {
+      backgroundColor: theme.colors.incorrect + '22',
+      borderColor: theme.colors.incorrect,
+    },
+    verifyBtnText: {
+      fontSize: theme.fontSizes.lg,
+      fontWeight: 'bold',
+    },
   });

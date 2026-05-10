@@ -1,10 +1,10 @@
-import { OperationType, LevelChange } from '../../shared/types';
+import { OperationType, LevelChange, SessionMode } from '../../shared/types';
 
 export type RootStackParamList = {
   ProfileSelect: undefined;
   CreateProfile: undefined;
   Home: undefined;
-  Session: { mode: 'quick' | 'operation' | 'daily_goal'; operation: OperationType };
+  Session: { mode: SessionMode; operation: OperationType; tableNumber?: number };
   SessionEnd: {
     sessionId: string;
     userProfileId: string;
@@ -12,6 +12,8 @@ export type RootStackParamList = {
     levelChanges: LevelChange[];
   };
   Parent: undefined;
+  ScreenTimeRedeem: undefined;
+  MultiplicationTable: undefined;
 };
 
 export type TabParamList = {
